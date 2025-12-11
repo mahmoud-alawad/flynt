@@ -1,11 +1,9 @@
 /* global IntersectionObserver, requestIdleCallback */
 import './rIC.js'
+import { buildRefs } from './helpers.js'
 const componentsWithScripts = import.meta.glob('@/Components/**/script.js')
 
-const interactionEvents = new Set([
-  'pointerdown',
-  'scroll'
-])
+const interactionEvents = new Set(['pointerdown', 'scroll'])
 
 const upgradedElements = new WeakMap()
 const FlyntComponents = new WeakMap()
@@ -15,7 +13,7 @@ export default class FlyntComponent extends window.HTMLElement {
   constructor () {
     super()
     let setReady
-    const isReady = new Promise((resolve) => {
+    const isReady = new Promise(resolve => {
       setReady = resolve
     })
     FlyntComponents.set(this, [isReady, setReady])
@@ -24,7 +22,10 @@ export default class FlyntComponent extends window.HTMLElement {
   async connectedCallback () {
     if (hasScript(this)) {
       const loadingStrategy = determineLoadingStrategy(this)
-      const loadingFunctionWrapper = getLoadingFunctionWrapper(loadingStrategy, this)
+      const loadingFunctionWrapper = getLoadingFunctionWrapper(
+        loadingStrategy,
+        this
+      )
       const mediaQuery = getMediaQuery(this)
       const loadingFunction = getLoadingFunction(this)
 
@@ -105,11 +106,9 @@ function mediaQueryMatches (query, node) {
     if (mediaQueryList.matches) {
       resolve(true)
     } else {
-      mediaQueryList.addEventListener(
-        'change',
-        () => resolve(true),
-        { once: true }
-      )
+      mediaQueryList.addEventListener('change', () => resolve(true), {
+        once: true
+      })
     }
     node.mediaQueryList = mediaQueryList
   })
@@ -128,20 +127,20 @@ function determineLoadingStrategy (node) {
 
 function getLoadingFunctionWrapper (strategyName, node) {
   const loadingFunctions = {
-    load: (x) => x(),
-    idle: (x) => requestIdleCallback(x, { timeout: 2000 }),
-    visible: async (x) => {
+    load: x => x(),
+    idle: x => requestIdleCallback(x, { timeout: 2000 }),
+    visible: async x => {
       await visible(node)
       x()
     },
-    interaction: (x) => {
+    interaction: x => {
       const load = () => {
-        interactionEvents.forEach((event) =>
+        interactionEvents.forEach(event =>
           document.removeEventListener(event, load)
         )
         x()
       }
-      interactionEvents.forEach((event) =>
+      interactionEvents.forEach(event =>
         document.addEventListener(event, load, { once: true })
       )
     }
@@ -151,14 +150,21 @@ function getLoadingFunctionWrapper (strategyName, node) {
 }
 
 function getMediaQuery (node) {
-  return node.hasAttribute('load:on:media') ? node.getAttribute('load:on:media') : null
+  return node.hasAttribute('load:on:media')
+    ? node.getAttribute('load:on:media')
+    : null
 }
 
 function getLoadingFunction (node) {
   return async () => {
     const componentScriptImport = getScriptImport(node)
     const componentScript = await componentScriptImport()
-    if (typeof componentScript.default === 'function' && !upgradedElements.has(node)) {
+    if (
+      typeof componentScript.default === 'function' &&
+      !upgradedElements.has(node)
+    ) {
+      node.refs = buildRefs(node)
+      node.refsList = buildRefs(node, true)
       const cleanupFn = componentScript.default(node)
       upgradedElements.set(node, cleanupFn)
     }
